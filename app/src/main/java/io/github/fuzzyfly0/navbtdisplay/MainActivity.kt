@@ -42,6 +42,9 @@ class MainActivity : Activity() {
         logPreview = findViewById(R.id.log_preview)
 
         findViewById<Button>(R.id.grant_access).setOnClickListener { openAccessSettings() }
+        findViewById<Button>(R.id.open_destination).setOnClickListener {
+            startActivity(Intent(this, DestinationActivity::class.java))
+        }
 
         findViewById<Switch>(R.id.enabled).apply {
             isChecked = prefs.enabled
@@ -84,8 +87,13 @@ class MainActivity : Activity() {
             isChecked = prefs.newTrackPerManeuver
             setOnCheckedChangeListener { _, on -> prefs.newTrackPerManeuver = on }
         }
+        findViewById<Switch>(R.id.new_track_per_song).apply {
+            isChecked = prefs.newTrackPerSong
+            setOnCheckedChangeListener { _, on -> prefs.newTrackPerSong = on }
+        }
 
         val artIds = mapOf(
+            ArtMode.ICONS to R.id.art_icons,
             ArtMode.OFF to R.id.art_off,
             ArtMode.NOTIFICATION to R.id.art_notification,
             ArtMode.SCREEN to R.id.art_screen,

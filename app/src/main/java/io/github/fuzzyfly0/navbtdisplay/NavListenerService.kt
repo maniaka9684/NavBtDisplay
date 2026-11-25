@@ -41,13 +41,30 @@ class NavListenerService : NotificationListenerService() {
         }
         DebugLog.log(this, "posted " + NotificationDump.describe(this, sbn))
         if (!NotificationDump.isGuidanceCandidate(sbn)) return
-        val car = NavText.compose(app.label, NotificationDump.fields(this, sbn, app.label)) ?: return
+        val raw = NotificationDump.fields(this, sbn, app.label)
+        val car = NavText.compose(app.label, raw) ?: return
         DebugLog.log(this, "parsed title='${car.title}' artist='${car.artist}' album='${car.album}' key='${car.maneuverKey}'")
         if (Prefs(this).artMode == ArtMode.NOTIFICATION) {
             NavPublisher.onArt(this, ArtMode.NOTIFICATION, runCatching { ArtImages.fromNotification(this, sbn) }.getOrNull())
         }
         LiveHint.onGuidance(sbn.key, app.label, car)
-        NavPublisher.onGuidance(this, sbn.key, car)
+        TripState.onGuidance()
+        val info = NavText.parse(raw, app.label)
+        if (info == null) {
+            NavPublisher.onGuidance(this, sbn.key, car)
+            return
+        }
+        // Classify the maneuver (incl. street: "Излезте на изход 5" keeps "изход" there).
+        val iconKey = NotificationDump.iconNames(this, sbn).firstNotNullOfOrNull(NavText::directionKey)
+        val maneuver = ManeuverParser.parse(listOfNotNull(info.maneuver, info.street).joinToString(" "), iconKey)
+        val g = Guidance(info, maneuver, ManeuverParser.meters(info.distance))
+        DebugLog.log(this, "classified $maneuver meters=${g.meters}")
+        val fallback = if (maneuver.type == ManeuverType.UNKNOWN && Prefs(this).artMode == ArtMode.ICONS) {
+            runCatching { ArtImages.fromNotification(this, sbn) }.getOrNull()
+        } else {
+            null
+        }
+        NavPublisher.onClassifiedGuidance(this, sbn.key, g, fallback)
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
@@ -57,6 +74,7 @@ class NavListenerService : NotificationListenerService() {
         if (app.kind == NavApp.Kind.NAVIGATION) {
             LiveHint.onGuidanceEnded(sbn.key)
             NavPublisher.onGuidanceEnded(this, sbn.key)
+            TripState.onGuidanceEnded(this)
         }
     }
 }

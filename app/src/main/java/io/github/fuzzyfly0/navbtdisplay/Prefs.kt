@@ -24,6 +24,9 @@ enum class ArtMode {
 
     /** A screenshot via screen sharing (MediaProjection), refreshed every few seconds. */
     SCREEN,
+
+    /** Our own maneuver icons with the compass arrow (default of this build). */
+    ICONS,
 }
 
 class Prefs(context: Context) {
@@ -58,8 +61,13 @@ class Prefs(context: Context) {
         get() = sp.getBoolean(KEY_NEW_TRACK_PER_MANEUVER, true)
         set(v) = sp.edit().putBoolean(KEY_NEW_TRACK_PER_MANEUVER, v).apply()
 
+    /** Report every new song to the car as a new track (only if the car does not refresh the text otherwise). */
+    var newTrackPerSong: Boolean
+        get() = sp.getBoolean(KEY_NEW_TRACK_PER_SONG, false)
+        set(v) = sp.edit().putBoolean(KEY_NEW_TRACK_PER_SONG, v).apply()
+
     var artMode: ArtMode
-        get() = runCatching { ArtMode.valueOf(sp.getString(KEY_ART_MODE, null)!!) }.getOrDefault(ArtMode.OFF)
+        get() = runCatching { ArtMode.valueOf(sp.getString(KEY_ART_MODE, null)!!) }.getOrDefault(ArtMode.ICONS)
         set(v) = sp.edit().putString(KEY_ART_MODE, v.name).apply()
 
     /** How often a new screenshot is sent in [ArtMode.SCREEN]. */
@@ -85,6 +93,7 @@ class Prefs(context: Context) {
         const val KEY_ROTATE_MUSIC = "rotate_music"
         const val KEY_RECLAIM_ON_MANEUVER = "reclaim_on_maneuver"
         const val KEY_NEW_TRACK_PER_MANEUVER = "new_track_per_maneuver"
+        const val KEY_NEW_TRACK_PER_SONG = "new_track_per_song"
         const val KEY_ART_MODE = "art_mode"
         const val KEY_ART_INTERVAL = "art_interval"
         const val KEY_DEBUG_LOG = "debug_log"

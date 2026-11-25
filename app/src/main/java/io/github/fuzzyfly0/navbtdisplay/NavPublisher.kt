@@ -47,6 +47,9 @@ object NavPublisher {
     private const val MIN_CLAIM_INTERVAL_MS = 5_000L
     private const val VOICE_POLL_MS = 500L
 
+    /** A compass-only change of the picture (= a new "track" for the car) at most this often. */
+    private const val COMPASS_MIN_INTERVAL_MS = 15_000L
+
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var appContext: Context
     private var session: MediaSession? = null
@@ -81,6 +84,17 @@ object NavPublisher {
     private var sentMediaId: String? = null
     private var sentArt: Bitmap? = null
 
+    /** Classified guidance (our Bulgarian layout and icons); null for warnings / other modes. */
+    private var guidance: Guidance? = null
+    private val threshold = NavDisplay.Threshold()
+    private val speedEstimator = SpeedEstimator()
+    private var shownIcon: Maneuver? = null
+    private var fallbackArt: Bitmap? = null
+    private var iconKey: String? = null
+    private var lastCompassChangeAt = 0L
+    private var lastShown: CarText? = null
+    private var lastShownArtVersion = -1
+
     private var audioLogged: String? = null
     private var audioCallbackRegistered = false
 
@@ -93,6 +107,62 @@ object NavPublisher {
 
     private fun init(context: Context) {
         if (!::appContext.isInitialized) appContext = context.applicationContext
+    }
+
+    /**
+     * A classified guidance update: our layout ("Наляво · 200 м" / street / ♪ song) and icons.
+     * [notificationArt] is only used when the maneuver could not be classified.
+     */
+    fun onClassifiedGuidance(context: Context, notificationKey: String, g: Guidance, notificationArt: Bitmap?) {
+        init(context)
+        guidance = g
+        if (notificationArt != null || g.maneuver.type != ManeuverType.UNKNOWN) fallbackArt = notificationArt
+        speedEstimator.onDistance(g.maneuver.toString() + g.info.street, g.meters, SystemClock.elapsedRealtime())
+        // onGuidance() compares the new key with the previous one, so keep [current] unchanged here.
+        val previous = current
+        val car = composeCurrent() ?: return
+        current = previous
+        onGuidance(context, notificationKey, car)
+    }
+
+    /** New GPS fix: may change the compass arrow or the "keep straight" threshold. */
+    fun onLocation(context: Context) {
+        init(context)
+        if (session == null || guidance == null || warning != null) return
+        render(onlyIfChanged = true)
+    }
+
+    /** Recomposes [current] from [guidance] with the current speed and song; sets [shownIcon]. */
+    private fun composeCurrent(): CarText? {
+        val g = guidance ?: return null
+        val kmh = TripState.speedKmh() ?: speedEstimator.kmh
+        val d = NavDisplay.compose(g, threshold.meters(kmh), musicLine())
+        shownIcon = d.icon
+        val car = CarText(title = d.title, artist = d.artist, album = d.album, maneuverKey = d.key)
+        current = car
+        return car
+    }
+
+    /** Our maneuver icon (with compass) as album art; the notification picture only for unknown maneuvers. */
+    private fun updateIconArt() {
+        if (Prefs(appContext).artMode != ArtMode.ICONS) return
+        val icon = shownIcon ?: return
+        val compass = TripState.compassDeg()
+        val spec = IconSpec.build(icon, compass)
+        val base = if (spec != null) icon.toString() else "fallback-${fallbackArt?.generationId}"
+        val key = "$base|$compass"
+        if (key == iconKey) return
+        val now = SystemClock.elapsedRealtime()
+        val compassOnly = iconKey?.substringBefore('|') == base
+        if (compassOnly && now - lastCompassChangeAt < COMPASS_MIN_INTERVAL_MS) return
+        if (compassOnly) lastCompassChangeAt = now
+        iconKey = key
+        art = when {
+            spec != null -> IconRenderer.render(spec)
+            fallbackArt != null -> fallbackArt
+            else -> IconRenderer.render(IconSpec.compass(compass ?: 0).takeIf { compass != null } ?: emptyList())
+        }
+        artVersion++
     }
 
     /** A guidance notification was posted or updated. */
@@ -143,6 +213,8 @@ object NavPublisher {
         if (notificationKey != guidanceKey) return
         guidanceKey = null
         current = null
+        guidance = null
+        iconKey = null
         suspendedManeuver = null
         if (warning == null) release("guidance ended")
     }
@@ -178,6 +250,7 @@ object NavPublisher {
     fun refresh(context: Context) {
         init(context)
         if (Prefs(appContext).artMode == ArtMode.OFF) art = null
+        iconKey = null
         if (session == null) return
         restartRotation()
         show()
@@ -198,6 +271,12 @@ object NavPublisher {
     fun showTest(context: Context) {
         init(context)
         takeOver()
+        if (Prefs(appContext).artMode == ArtMode.ICONS) {
+            // Shows our icon style (roundabout, exit 2, compass ahead-right) on the car.
+            art = IconRenderer.render(IconSpec.build(Maneuver(ManeuverType.ROUNDABOUT, exit = 2), 30)!!)
+            artVersion++
+            iconKey = null
+        }
         setMetadata(
             CarText(
                 title = appContext.getString(R.string.test_hint_title),
@@ -215,6 +294,8 @@ object NavPublisher {
         init(context)
         guidanceKey = null
         current = null
+        guidance = null
+        iconKey = null
         suspendedManeuver = null
         warning = null
         handler.removeCallbacks(warningEndRunnable)
@@ -331,6 +412,7 @@ object NavPublisher {
         rotationRunning = false
         sentMediaId = null
         sentArt = null
+        lastShown = null
         detachMusic()
         unwatchAudioPlayers()
         silence?.stop()
@@ -344,14 +426,25 @@ object NavPublisher {
     }
 
     /** Puts the current warning or guidance (with the music title, if rotating) on the display. */
-    private fun show() {
+    private fun show() = render(onlyIfChanged = false)
+
+    private fun render(onlyIfChanged: Boolean) {
         warning?.let {
+            lastShown = null
             setMetadata(it)
             return
         }
+        if (guidance != null) {
+            composeCurrent()
+            updateIconArt()
+        }
         val car = current ?: return
         val music = if (showMusic && rotationEnabled()) musicLine() else null
-        setMetadata(if (music != null) car.copy(title = music) else car)
+        val out = if (music != null) car.copy(title = music) else car
+        if (onlyIfChanged && out == lastShown && artVersion == lastShownArtVersion) return
+        lastShown = out
+        lastShownArtVersion = artVersion
+        setMetadata(out)
     }
 
     private fun rotationEnabled(): Boolean {
@@ -508,7 +601,9 @@ object NavPublisher {
         val artOn = prefs.artMode != ArtMode.OFF
         // A new media id makes head units treat it as a new "track": per maneuver (optional)
         // and per album art image, since cars only fetch the art of a new track.
-        val base = if (prefs.newTrackPerManeuver) "nav-${car.maneuverKey.hashCode()}" else "nav"
+        val track = if (prefs.newTrackPerManeuver) "nav-${car.maneuverKey.hashCode()}" else "nav"
+        // Optional: some head units only refresh the text on a new track (the song is in the album line).
+        val base = if (prefs.newTrackPerSong) "$track-${car.album.hashCode()}" else track
         val wantedId = if (artOn) "$base-$artVersion" else base
         val wantedArt = if (artOn) art else null
         // Some head units mute briefly on a track change: no new track during a voice prompt.

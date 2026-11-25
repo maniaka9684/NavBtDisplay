@@ -28,6 +28,13 @@
             android:layout_height="wrap_content"
             android:text="@string/grant_access" />
 
+        <Button
+            android:id="@+id/open_destination"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/open_destination" />
+
         <Switch
             android:id="@+id/enabled"
             android:layout_width="match_parent"
@@ -94,6 +101,13 @@
             android:paddingTop="8dp"
             android:text="@string/new_track_per_maneuver" />
 
+        <Switch
+            android:id="@+id/new_track_per_song"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="8dp"
+            android:text="@string/new_track_per_song" />
+
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -111,6 +125,12 @@
             android:id="@+id/art_mode"
             android:layout_width="match_parent"
             android:layout_height="wrap_content">
+
+            <RadioButton
+                android:id="@+id/art_icons"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/art_icons" />
 
             <RadioButton
                 android:id="@+id/art_off"

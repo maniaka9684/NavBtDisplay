@@ -7,11 +7,12 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "io.github.fuzzyfly0.navbtdisplay"
+        // Own id, so this build installs next to the original NavBtDisplay.
+        applicationId = "io.github.fuzzyfly0.navbtdisplay.bg"
         minSdk = 29
         targetSdk = 37
         versionCode = 2
-        versionName = "0.2.0"
+        versionName = "0.2.0-bg.1"
     }
 
     buildTypes {

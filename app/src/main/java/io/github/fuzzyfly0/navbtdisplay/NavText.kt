@@ -54,22 +54,26 @@ object NavText {
     private val invisibleChars = Regex("[\\u200B-\\u200F\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]")
     private val whitespace = Regex("\\s+")
 
-    private const val DIST = "\\d+(?:[.,]\\d+)?\\s?(?:km|m|mi|ft|yd)"
+    private const val DIST = "\\d+(?:[.,]\\d+)?\\s?(?:km|m|mi|ft|yd|км|м)"
+
+    /** Word end that also works after Cyrillic (JVM \\b is ASCII-only since Java 19). */
+    private const val WEND = "(?![\\p{L}\\p{N}])"
 
     /** A field that is only a distance: "300 m", "In 1,2 km", "za 300 m". */
-    private val distanceOnly = Regex("^(?:in|za)?\\s*($DIST)$", RegexOption.IGNORE_CASE)
+    private val distanceOnly = Regex("^(?:in|za|след)?\\s*($DIST)$", RegexOption.IGNORE_CASE)
 
     /** A distance at the start of a maneuver: "In 300 m rechts abbiegen", "300 m · Turn right". */
     private val distancePrefix =
-        Regex("^(?:in|za)?\\s*($DIST)\\b\\s*[·,:\\-–]?\\s*(.+)$", RegexOption.IGNORE_CASE)
+        Regex("^(?:in|za|след)?\\s*($DIST)$WEND\\s*[·,:\\-–]?\\s*(.+)$", RegexOption.IGNORE_CASE)
 
     /** A distance at the end of a maneuver: "Turn left in 300 m". */
     private val distanceSuffix =
-        Regex("^(.+?)\\s*[·,]?\\s+(?:in|za)\\s+($DIST)$", RegexOption.IGNORE_CASE)
+        Regex("^(.+?)\\s*[·,]?\\s+(?:in|za|след)\\s+($DIST)$", RegexOption.IGNORE_CASE)
 
     /** Clock times, durations and arrival words that mark the trip summary. */
     private val summaryMarker = Regex(
-        "\\b\\d{1,2}:\\d{2}\\b|\\b\\d+\\s?(?:min|std|h|hr|hod)\\b|\\b(?:eta|arrival|ankunft|příjezd|cíl)\\b",
+        "\\b\\d{1,2}:\\d{2}\\b|\\b\\d+\\s?(?:min|std|h|hr|hod)\\b|\\b(?:eta|arrival|ankunft|příjezd|cíl)\\b|" +
+            "\\d+\\s?(?:мин|ч)$WEND|пристигане",
         RegexOption.IGNORE_CASE,
     )
 
@@ -79,7 +83,7 @@ object NavText {
      * " to " is deliberately missing: "Keep left to stay on A9".
      */
     private val streetMarker = Regex(
-        "\\s(?:(onto|on|into|auf|in die|in den|in|na|do)|(toward|towards|richtung|směr|ve směru))\\s+(.+)$",
+        "\\s(?:(onto|on|into|auf|in die|in den|in|na|do|към|по)|(toward|towards|richtung|směr|ve směru|в посока))\\s+(.+)$",
         RegexOption.IGNORE_CASE,
     )
 
@@ -91,8 +95,14 @@ object NavText {
         RegexOption.IGNORE_CASE,
     )
 
+    /** Bulgarian direction words (no \\b: it is ASCII-only on the JVM). */
+    private val directionWordBg = Regex(
+        "наляво|надясно|вляво|вдясно|направо|продължете|кръгов|изход|обратен|завийте|дръжте|влейте|дестинац|пристигн",
+        RegexOption.IGNORE_CASE,
+    )
+
     /** The second line of the big text when it announces the following maneuver. */
-    private val thenMarker = Regex("^(?:dann|then|poté|potom|pak)\\b", RegexOption.IGNORE_CASE)
+    private val thenMarker = Regex("^(?:(?:dann|then|poté|potom|pak)\\b|след това|после)", RegexOption.IGNORE_CASE)
 
     /** App names that some apps put into a text field; they carry no guidance. */
     private val appName = Regex(
@@ -111,7 +121,7 @@ object NavText {
     private val brandName = Regex("blitzer\\.de(?: pro)?", RegexOption.IGNORE_CASE)
 
     private val unitsForKey = Regex(
-        "\\d+(?:[.,]\\d+)?\\s*(?:km|m|mi|ft|yd|min|h|std)?\\b",
+        "\\d+(?:[.,]\\d+)?\\s*(?:km|m|mi|ft|yd|min|h|std|км|м|мин|ч)?(?![\\p{L}\\p{N}])",
         RegexOption.IGNORE_CASE,
     )
 
@@ -215,7 +225,7 @@ object NavText {
         // Text without any direction ("Hlavní") is the street; the direction then only
         // exists as the notification icon.
         val icon = clean(raw.iconManeuver)
-        if (icon != null && (maneuver == null || !directionWord.containsMatchIn(maneuver!!))) {
+        if (icon != null && (maneuver == null || !(directionWord.containsMatchIn(maneuver!!) || directionWordBg.containsMatchIn(maneuver!!)))) {
             if (street == null) street = maneuver
             maneuver = icon
         }

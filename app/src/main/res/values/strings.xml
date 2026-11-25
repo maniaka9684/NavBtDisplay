@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name" translatable="false">Nav BT Display</string>
+    <string name="app_name" translatable="false">Nav BT BG</string>
     <string name="test_hint_title">200 m · Turn right (test)</string>
     <string name="test_hint_artist">Main Street</string>
     <string name="test_hint_album">12 min · 5.3 km · ETA 18:34</string>
@@ -67,6 +67,22 @@
     <string name="section_last_hint">Last hint</string>
     <string name="no_hint_yet">No hint yet.</string>
     <string name="test_hint">Send test hint (10 s)</string>
+
+    <string name="art_icons">Own maneuver icons with compass arrow</string>
+    <string name="new_track_per_song">Report every new song as a new track (only if the car does not update the third line otherwise)</string>
+    <string name="open_destination">Navigate with compass arrow</string>
+    <string name="dest_title">Navigation with compass arrow</string>
+    <string name="dest_hint">Enter an address (or share a place from Google Maps to this app). The app finds its coordinates, starts GPS for the compass arrow and opens Google Maps navigation.</string>
+    <string name="dest_input_hint">Address or coordinates (42.6977, 23.3219)</string>
+    <string name="dest_go">Start</string>
+    <string name="dest_stop">Stop compass</string>
+    <string name="dest_stopped">Compass stopped.</string>
+    <string name="dest_searching">Searching for the address…</string>
+    <string name="dest_active">Compass active: %1$s</string>
+    <string name="dest_not_found">Address not found – Google Maps navigates without compass arrow.</string>
+    <string name="dest_no_permission">No location permission – navigation without compass arrow.</string>
+    <string name="trip_channel">Compass arrow (GPS)</string>
+    <string name="trip_running">Compass arrow active</string>
 
     <string name="section_debug">Debug</string>
     <string name="debug_log">Log notifications of the navigation apps</string>

@@ -7,6 +7,11 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Compass arrow: GPS only while a trip started from DestinationActivity runs; nothing is stored or sent. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+
     <!-- Shows "installed / not installed" next to each app and reads the names of their notification icons. -->
     <queries>
         <package android:name="com.google.android.apps.maps" />
@@ -31,6 +36,25 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".DestinationActivity"
+            android:exported="true"
+            android:label="@string/open_destination"
+            android:launchMode="singleTop"
+            android:windowSoftInputMode="stateVisible">
+            <!-- "Share" a place from Google Maps to start navigation with the compass arrow. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name=".TripLocationService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
 
         <service
             android:name=".NavListenerService"

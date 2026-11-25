@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="test_hint_title">Кръгово – изход 2 · 200 м (тест)</string>
+    <string name="test_hint_artist">ул. Шипка</string>
+    <string name="test_hint_album">♪ Изпълнител – Песен</string>
+
+    <string name="section_access">Достъп до известията</string>
+    <string name="access_granted">Разрешен – известията на навигацията могат да се четат.</string>
+    <string name="access_missing">Не е разрешен – приложението още не може да чете известията на навигацията.</string>
+    <string name="grant_access">Отвори настройките за достъп до известия</string>
+    <string name="enabled">Показвай навигацията на екрана на колата</string>
+
+    <string name="section_mode">Екран на колата</string>
+    <string name="mode_flash">Всеки нов маневър за 8 с, после обратно музиката</string>
+    <string name="mode_takeover">Навигация през целия път (препоръчително)</string>
+    <string name="mode_passive">Пасивно: само медийна сесия, без беззвучен плейър (обикновено не се вижда, докато свири музика)</string>
+    <string name="rotate_music">Редувай първия ред с името на песента (само при „навигация през целия път“)</string>
+
+    <string name="section_voice">Гласови указания</string>
+    <string name="reclaim_on_maneuver">Взимай екрана отново при всеки нов маневър (изкл.: само след като музикалното приложение го е взело, напр. нова песен)</string>
+    <string name="new_track_per_maneuver">Подавай всеки нов маневър към колата като нова песен (изключете, ако гласът се накъсва: някои мултимедии заглушават за момент при смяна на песен)</string>
+    <string name="voice_hint">Докато звучи гласово указание, приложението не рестартира плейъра си и не подава нова песен.</string>
+
+    <string name="section_art">Картинка (обложка)</string>
+    <string name="art_off">Без картинка</string>
+    <string name="art_notification">Картинката от известието на навигацията</string>
+    <string name="art_screen">Скрийншот чрез споделяне на екрана</string>
+    <string name="art_interval">Обновявай скрийншота на всеки</string>
+    <string name="art_interval_3">3 с</string>
+    <string name="art_interval_5">5 с</string>
+    <string name="art_interval_10">10 с</string>
+    <string name="capture_start">Започни споделяне на екрана</string>
+    <string name="capture_stop">Спри споделянето на екрана</string>
+    <string name="capture_running">Споделянето на екрана за колата е включено</string>
+    <string name="capture_channel">Споделяне на екрана</string>
+    <string name="art_hint">Колите зареждат нова картинка само при нова песен, затова всяка нова картинка се подава като нова песен. Телефонът и колата трябва да поддържат обложки през Bluetooth.</string>
+
+    <string name="dir_left">Turn left</string>
+    <string name="dir_right">Turn right</string>
+    <string name="dir_slight_left">Slight left</string>
+    <string name="dir_slight_right">Slight right</string>
+    <string name="dir_sharp_left">Sharp left</string>
+    <string name="dir_sharp_right">Sharp right</string>
+    <string name="dir_keep_left">Keep left</string>
+    <string name="dir_keep_right">Keep right</string>
+    <string name="dir_exit_left">Exit left</string>
+    <string name="dir_exit_right">Exit right</string>
+    <string name="dir_straight">Continue straight</string>
+    <string name="dir_uturn">Make a U-turn</string>
+    <string name="dir_roundabout">Roundabout</string>
+    <string name="dir_destination">Destination</string>
+
+    <string name="section_car">Android Auto</string>
+    <string name="car_hint">Само за коли с Android Auto (не е нужно за Вашата кола).</string>
+    <string name="car_no_guidance">Няма активна навигация</string>
+    <string name="car_no_guidance_hint">Стартирайте навигация в Google Maps</string>
+    <string name="car_guidance_running">Навигацията работи</string>
+    <string name="car_no_warning">Няма предупреждение</string>
+    <string name="car_updated">обновено %1$s</string>
+
+    <string name="section_apps">Навигационни приложения</string>
+    <string name="app_installed">инсталирано</string>
+    <string name="app_not_installed">не е инсталирано</string>
+    <string name="app_entry">%1$s (%2$s)</string>
+
+    <string name="section_last_hint">Последно указание</string>
+    <string name="no_hint_yet">Още няма указание.</string>
+    <string name="test_hint">Изпрати тестово указание (10 с)</string>
+
+    <string name="art_icons">Собствени иконки на маневрите с компасна стрелка</string>
+    <string name="new_track_per_song">Подавай всяка нова песен като нова песен към колата (само ако колата не обновява третия ред иначе)</string>
+    <string name="open_destination">Навигация с компасна стрелка</string>
+    <string name="dest_title">Навигация с компасна стрелка</string>
+    <string name="dest_hint">Въведете адрес (или споделете място от Google Maps към това приложение). Приложението намира координатите, пуска GPS за компасната стрелка и отваря навигацията в Google Maps.</string>
+    <string name="dest_input_hint">Адрес или координати (42.6977, 23.3219)</string>
+    <string name="dest_go">Тръгни</string>
+    <string name="dest_stop">Спри компаса</string>
+    <string name="dest_stopped">Компасът е спрян.</string>
+    <string name="dest_searching">Търся адреса…</string>
+    <string name="dest_active">Компасът е активен: %1$s</string>
+    <string name="dest_not_found">Адресът не е намерен – Google Maps навигира без компасна стрелка.</string>
+    <string name="dest_no_permission">Няма разрешение за местоположение – навигация без компасна стрелка.</string>
+    <string name="trip_channel">Компасна стрелка (GPS)</string>
+    <string name="trip_running">Компасната стрелка е активна</string>
+
+    <string name="section_debug">Дневник (за отстраняване на грешки)</string>
+    <string name="debug_log">Записвай известията на навигационните приложения</string>
+    <string name="share_log">Сподели дневника</string>
+    <string name="clear_log">Изчисти дневника</string>
+    <string name="log_empty">Дневникът е празен.</string>
+</resources>
