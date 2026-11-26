@@ -42,9 +42,6 @@ class MainActivity : Activity() {
         logPreview = findViewById(R.id.log_preview)
 
         findViewById<Button>(R.id.grant_access).setOnClickListener { openAccessSettings() }
-        findViewById<Button>(R.id.open_destination).setOnClickListener {
-            startActivity(Intent(this, DestinationActivity::class.java))
-        }
 
         findViewById<Switch>(R.id.enabled).apply {
             isChecked = prefs.enabled

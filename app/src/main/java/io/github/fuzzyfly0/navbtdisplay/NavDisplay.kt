@@ -1,13 +1,17 @@
 package io.github.fuzzyfly0.navbtdisplay
 
-/** One guidance update, already split and classified. */
+/** One guidance update, already split and classified. [iconId]: short id of the notification picture. */
 data class Guidance(
     val info: NavInfo,
     val maneuver: Maneuver,
     val meters: Int?,
+    val iconId: String? = null,
 )
 
-/** What goes to the car: three lines, a stable key per shown maneuver, and the maneuver to draw. */
+/** The song playing in the music app. */
+data class Song(val title: String?, val artist: String?, val album: String? = null)
+
+/** What goes to the car: three lines, a stable key per maneuver, and the maneuver to draw. */
 data class DisplayText(
     val title: String,
     val artist: String,
@@ -17,13 +21,13 @@ data class DisplayText(
 )
 
 /**
- * Car layout agreed for this build:
- *  - maneuver near:  title "Наляво · 200 м", artist = street, album = ♪ song
- *  - maneuver far:   title "Направо · 8,4 км", artist "след това: наляво", album = ♪ song,
- *                    icon = straight arrow
- * Without music the album line shows the trip summary instead.
+ * Car layout of this build (line 1 = title, line 2 = "artist", line 3 = "album"):
+ *  - maneuver near:      icon = maneuver,      line 1 "⮙ 200 м" (roundabout: "⮙ 2. изх. 200 м")
+ *  - driving straight:   icon = straight arrow, line 1 "⮙" (no distance)
+ *  - line 2 "♪ <song title> • <album>", line 3 "<song artist>" (empty without music)
  */
 object NavDisplay {
+    const val ARROW = "⮙"
     const val CITY_THRESHOLD_M = 500
     const val FAST_THRESHOLD_M = 2_000
 
@@ -44,31 +48,38 @@ object NavDisplay {
         }
     }
 
+    /** Far from the next maneuver (or the maneuver is just "continue"): show the straight arrow. */
     fun isCruise(g: Guidance, thresholdM: Int): Boolean =
-        g.meters != null && g.meters > thresholdM && g.maneuver.type != ManeuverType.STRAIGHT
+        g.maneuver.type == ManeuverType.STRAIGHT || (g.meters != null && g.meters > thresholdM)
 
-    private fun lowerFirst(s: String) = s.replaceFirstChar { it.lowercase() }
-
-    fun compose(g: Guidance, thresholdM: Int, song: String?): DisplayText {
-        val label = ManeuverParser.label(g.maneuver) ?: g.info.maneuver
-        val album = song ?: g.info.summary ?: ""
+    /**
+     * Identity of the maneuver itself: the same while the distance counts down and when the
+     * display switches between straight and the maneuver. Numbers are removed from texts.
+     */
+    fun identity(g: Guidance): String {
         val m = g.maneuver
-        return if (isCruise(g, thresholdM)) {
-            DisplayText(
-                title = listOfNotNull("Направо", g.info.distance).joinToString(" · "),
-                artist = label?.let { "след това: ${lowerFirst(it)}" } ?: "",
-                album = album,
-                key = "cruise|$label|${g.info.street}",
-                icon = Maneuver(ManeuverType.STRAIGHT),
-            )
-        } else {
-            DisplayText(
-                title = listOfNotNull(label, g.info.distance).joinToString(" · "),
-                artist = g.info.street ?: g.info.then ?: "",
-                album = album,
-                key = "m|${m.type}|${m.side}|${m.exit}|${m.roundaboutDirection}|$label|${g.info.street}",
-                icon = m,
-            )
-        }
+        val text = NavText.maneuverKey(listOfNotNull(g.info.maneuver, g.info.street).joinToString(" "))
+        return "${m.type}|${m.side}|${m.exit}|${m.roundaboutDirection}|${g.iconId}|$text"
+    }
+
+    /** "♪ Title • Album"; parts that are missing are left out. */
+    fun songLine(song: Song?): String {
+        val parts = listOfNotNull(song?.title, song?.album).map(String::trim).filter(String::isNotEmpty)
+        return if (parts.isEmpty()) "" else "♪ " + parts.joinToString(" • ")
+    }
+
+    /** [keepNear]: this maneuver was already shown near; stay on it until the next one. */
+    fun compose(g: Guidance, thresholdM: Int, song: Song?, keepNear: Boolean = false): DisplayText {
+        val near = keepNear || !isCruise(g, thresholdM)
+        val showDistance = near && g.maneuver.type != ManeuverType.STRAIGHT && (g.meters ?: 1) > 0
+        val exit = g.maneuver.exit?.takeIf { near && g.maneuver.type == ManeuverType.ROUNDABOUT }?.let { "$it. изх." }
+        val title = listOfNotNull(ARROW, exit, g.info.distance?.takeIf { showDistance }).joinToString(" ")
+        return DisplayText(
+            title = title,
+            artist = songLine(song),
+            album = song?.artist?.takeIf { it.isNotBlank() } ?: "",
+            key = identity(g),
+            icon = if (near) g.maneuver else Maneuver(ManeuverType.STRAIGHT),
+        )
     }
 }

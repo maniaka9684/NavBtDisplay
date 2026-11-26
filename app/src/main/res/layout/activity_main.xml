@@ -28,13 +28,6 @@
             android:layout_height="wrap_content"
             android:text="@string/grant_access" />
 
-        <Button
-            android:id="@+id/open_destination"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:text="@string/open_destination" />
-
         <Switch
             android:id="@+id/enabled"
             android:layout_width="match_parent"

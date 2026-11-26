@@ -3,6 +3,7 @@ package io.github.fuzzyfly0.navbtdisplay
 import android.content.ComponentName
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.AudioPlaybackConfiguration
@@ -47,8 +48,11 @@ object NavPublisher {
     private const val MIN_CLAIM_INTERVAL_MS = 5_000L
     private const val VOICE_POLL_MS = 500L
 
-    /** A compass-only change of the picture (= a new "track" for the car) at most this often. */
-    private const val COMPASS_MIN_INTERVAL_MS = 15_000L
+    /**
+     * Play/pause that reach our session this soon after a player started or stopped are
+     * the head unit reacting to the change, not the driver: forwarding them stopped the music.
+     */
+    private const val AUTO_KEY_GUARD_MS = 2_500L
 
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var appContext: Context
@@ -91,9 +95,16 @@ object NavPublisher {
     private var shownIcon: Maneuver? = null
     private var fallbackArt: Bitmap? = null
     private var iconKey: String? = null
-    private var lastCompassChangeAt = 0L
+    /** Last time an audio player started/stopped (ours or the music app's). */
+    private var lastPlayerChangeAt = 0L
     private var lastShown: CarText? = null
     private var lastShownArtVersion = -1
+
+    /** The approved straight-arrow picture (res/drawable-nodpi/straight_arrow.png), loaded once. */
+    private var straightBitmap: Bitmap? = null
+
+    /** Identity of the maneuver already shown near; it stays shown until the next maneuver. */
+    private var nearIdentity: String? = null
 
     private var audioLogged: String? = null
     private var audioCallbackRegistered = false
@@ -111,12 +122,15 @@ object NavPublisher {
 
     /**
      * A classified guidance update: our layout ("Наляво · 200 м" / street / ♪ song) and icons.
-     * [notificationArt] is only used when the maneuver could not be classified.
+     * [notificationArt]: the Google Maps picture on our background, shown near a maneuver.
      */
     fun onClassifiedGuidance(context: Context, notificationKey: String, g: Guidance, notificationArt: Bitmap?) {
         init(context)
         guidance = g
-        if (notificationArt != null || g.maneuver.type != ManeuverType.UNKNOWN) fallbackArt = notificationArt
+        // A new bitmap arrives with every update; keep the old one if the picture is the same,
+        // otherwise every update would be a new picture (= a new "track" for the car).
+        val old = fallbackArt
+        if (notificationArt != null && (old == null || !notificationArt.sameAs(old))) fallbackArt = notificationArt
         speedEstimator.onDistance(g.maneuver.toString() + g.info.street, g.meters, SystemClock.elapsedRealtime())
         // onGuidance() compares the new key with the previous one, so keep [current] unchanged here.
         val previous = current
@@ -125,43 +139,48 @@ object NavPublisher {
         onGuidance(context, notificationKey, car)
     }
 
-    /** New GPS fix: may change the compass arrow or the "keep straight" threshold. */
-    fun onLocation(context: Context) {
-        init(context)
-        if (session == null || guidance == null || warning != null) return
-        render(onlyIfChanged = true)
-    }
-
     /** Recomposes [current] from [guidance] with the current speed and song; sets [shownIcon]. */
     private fun composeCurrent(): CarText? {
         val g = guidance ?: return null
-        val kmh = TripState.speedKmh() ?: speedEstimator.kmh
-        val d = NavDisplay.compose(g, threshold.meters(kmh), musicLine())
+        val id = NavDisplay.identity(g)
+        val d = NavDisplay.compose(g, threshold.meters(speedEstimator.kmh), currentSong(), keepNear = id == nearIdentity)
+        if (d.icon == g.maneuver) nearIdentity = id
         shownIcon = d.icon
         val car = CarText(title = d.title, artist = d.artist, album = d.album, maneuverKey = d.key)
         current = car
         return car
     }
 
-    /** Our maneuver icon (with compass) as album art; the notification picture only for unknown maneuvers. */
+    /**
+     * The approved picture, used as it is; only reduced to the album art size of the other
+     * pictures (cars get the art as a small thumbnail anyway).
+     */
+    private fun straightArt(): Bitmap {
+        straightBitmap?.let { return it }
+        val opts = BitmapFactory.Options().apply { inScaled = false }
+        val src = BitmapFactory.decodeResource(appContext.resources, R.drawable.straight_arrow, opts)
+        val b = if (src != null) {
+            Bitmap.createScaledBitmap(src, ArtImages.SIZE, ArtImages.SIZE, true)
+        } else {
+            IconRenderer.render(IconSpec.straightWhite())
+        }
+        straightBitmap = b
+        return b
+    }
+
+    /**
+     * Album art: near a maneuver the Google Maps picture, unchanged, on our dark background;
+     * while driving straight our white straight arrow. Only a real change makes a new picture.
+     */
     private fun updateIconArt() {
         if (Prefs(appContext).artMode != ArtMode.ICONS) return
         val icon = shownIcon ?: return
-        val compass = TripState.compassDeg()
-        val spec = IconSpec.build(icon, compass)
-        val base = if (spec != null) icon.toString() else "fallback-${fallbackArt?.generationId}"
-        val key = "$base|$compass"
+        val google = fallbackArt
+        val straight = icon.type == ManeuverType.STRAIGHT
+        val key = if (straight || google == null) "straight" else "google-${google.generationId}"
         if (key == iconKey) return
-        val now = SystemClock.elapsedRealtime()
-        val compassOnly = iconKey?.substringBefore('|') == base
-        if (compassOnly && now - lastCompassChangeAt < COMPASS_MIN_INTERVAL_MS) return
-        if (compassOnly) lastCompassChangeAt = now
         iconKey = key
-        art = when {
-            spec != null -> IconRenderer.render(spec)
-            fallbackArt != null -> fallbackArt
-            else -> IconRenderer.render(IconSpec.compass(compass ?: 0).takeIf { compass != null } ?: emptyList())
-        }
+        art = if (key == "straight") straightArt() else google
         artVersion++
     }
 
@@ -215,6 +234,7 @@ object NavPublisher {
         current = null
         guidance = null
         iconKey = null
+        nearIdentity = null
         suspendedManeuver = null
         if (warning == null) release("guidance ended")
     }
@@ -272,8 +292,8 @@ object NavPublisher {
         init(context)
         takeOver()
         if (Prefs(appContext).artMode == ArtMode.ICONS) {
-            // Shows our icon style (roundabout, exit 2, compass ahead-right) on the car.
-            art = IconRenderer.render(IconSpec.build(Maneuver(ManeuverType.ROUNDABOUT, exit = 2), 30)!!)
+            // Shows our icon style (roundabout, exit 2) on the car.
+            art = IconRenderer.render(IconSpec.build(Maneuver(ManeuverType.ROUNDABOUT, exit = 2))!!)
             artVersion++
             iconKey = null
         }
@@ -296,6 +316,7 @@ object NavPublisher {
         current = null
         guidance = null
         iconKey = null
+        nearIdentity = null
         suspendedManeuver = null
         warning = null
         handler.removeCallbacks(warningEndRunnable)
@@ -335,6 +356,7 @@ object NavPublisher {
         s.restart()
         setPlaybackState(PlaybackState.STATE_PLAYING)
         lastTakeOverAt = SystemClock.elapsedRealtime()
+        lastPlayerChangeAt = lastTakeOverAt
         handler.removeCallbacks(reclaimRunnable)
         attachMusic()
         watchAudioPlayers()
@@ -359,6 +381,7 @@ object NavPublisher {
         s.restart()
         setPlaybackState(PlaybackState.STATE_PLAYING)
         lastTakeOverAt = SystemClock.elapsedRealtime()
+        lastPlayerChangeAt = lastTakeOverAt
         DebugLog.log(appContext, "re-claimed display")
         show()
     }
@@ -377,6 +400,7 @@ object NavPublisher {
     /** Logs which players are active (usage/content type), to find out how an app plays its prompts. */
     private val audioCallback = object : AudioManager.AudioPlaybackCallback() {
         override fun onPlaybackConfigChanged(configs: List<AudioPlaybackConfiguration>) {
+            lastPlayerChangeAt = SystemClock.elapsedRealtime()
             val desc = configs.joinToString(", ") {
                 val a = it.audioAttributes
                 "usage=${a.usage} content=${a.contentType}" + if (isVoicePrompt(a)) " (prompt)" else ""
@@ -471,6 +495,18 @@ object NavPublisher {
         handler.postDelayed(rotateRunnable, if (showMusic) MUSIC_PHASE_MS else NAV_PHASE_MS)
     }
 
+    /** Title and artist of the song in the music app (also while paused), or null. */
+    private fun currentSong(): Song? {
+        val md = musicController?.metadata ?: return null
+        fun get(key: String) = md.getString(key)?.trim()?.takeIf(String::isNotEmpty)
+        val song = Song(
+            get(MediaMetadata.METADATA_KEY_TITLE),
+            get(MediaMetadata.METADATA_KEY_ARTIST),
+            get(MediaMetadata.METADATA_KEY_ALBUM),
+        )
+        return song.takeIf { it.title != null || it.artist != null || it.album != null }
+    }
+
     private fun musicLine(): String? {
         val c = musicController ?: return null
         if (c.playbackState?.state != PlaybackState.STATE_PLAYING) return null
@@ -491,6 +527,7 @@ object NavPublisher {
             val track = trackOf(metadata)
             if (track == musicTrack) return
             musicTrack = track
+            lastPlayerChangeAt = SystemClock.elapsedRealtime()
             onMusicChanged("track changed")
         }
 
@@ -498,6 +535,7 @@ object NavPublisher {
             val playing = state?.state == PlaybackState.STATE_PLAYING
             if (playing == musicPlaying) return
             musicPlaying = playing
+            lastPlayerChangeAt = SystemClock.elapsedRealtime()
             if (playing) onMusicChanged("music started")
         }
 
@@ -638,12 +676,26 @@ object NavPublisher {
      * and re-send the key, so it reaches whichever app the system picks next.
      */
     private val callback = object : MediaSession.Callback() {
-        override fun onPlay() = forward(KeyEvent.KEYCODE_MEDIA_PLAY) { it.play() }
-        override fun onPause() = forward(KeyEvent.KEYCODE_MEDIA_PAUSE) { it.pause() }
-        override fun onStop() = forward(KeyEvent.KEYCODE_MEDIA_STOP) { it.stop() }
+        override fun onPlay() = forwardUnlessAutomatic(KeyEvent.KEYCODE_MEDIA_PLAY) { it.play() }
+        override fun onPause() = forwardUnlessAutomatic(KeyEvent.KEYCODE_MEDIA_PAUSE) { it.pause() }
+        override fun onStop() = forwardUnlessAutomatic(KeyEvent.KEYCODE_MEDIA_STOP) { it.stop() }
         override fun onSkipToNext() = forward(KeyEvent.KEYCODE_MEDIA_NEXT) { it.skipToNext() }
         override fun onSkipToPrevious() =
             forward(KeyEvent.KEYCODE_MEDIA_PREVIOUS) { it.skipToPrevious() }
+    }
+
+    /**
+     * The head unit sends pause (and sometimes play) by itself when a player starts or stops,
+     * e.g. after a song change in the music app or our re-claim. Forwarded, that paused the
+     * music; such keys right after a player change are ignored. Next/previous always pass.
+     */
+    private fun forwardUnlessAutomatic(keyCode: Int, action: (MediaController.TransportControls) -> Unit) {
+        val since = SystemClock.elapsedRealtime() - lastPlayerChangeAt
+        if (since < AUTO_KEY_GUARD_MS) {
+            DebugLog.log(appContext, "ignored key $keyCode (${since} ms after a player change)")
+            return
+        }
+        forward(keyCode, action)
     }
 
     private fun forward(keyCode: Int, action: (MediaController.TransportControls) -> Unit) {

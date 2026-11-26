@@ -25,7 +25,7 @@ enum class ArtMode {
     /** A screenshot via screen sharing (MediaProjection), refreshed every few seconds. */
     SCREEN,
 
-    /** Our own maneuver icons with the compass arrow (default of this build). */
+    /** Our own maneuver icons (default of this build). */
     ICONS,
 }
 
@@ -58,7 +58,9 @@ class Prefs(context: Context) {
 
     /** Report every new maneuver to the car as a new track (new media id). */
     var newTrackPerManeuver: Boolean
-        get() = sp.getBoolean(KEY_NEW_TRACK_PER_MANEUVER, true)
+        // Off in this build: with our icons a new picture already means a new track,
+        // so a new track only for new text would just fill the car's cache.
+        get() = sp.getBoolean(KEY_NEW_TRACK_PER_MANEUVER, false)
         set(v) = sp.edit().putBoolean(KEY_NEW_TRACK_PER_MANEUVER, v).apply()
 
     /** Report every new song to the car as a new track (only if the car does not refresh the text otherwise). */

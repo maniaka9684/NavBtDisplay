@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="test_hint_title">Кръгово – изход 2 · 200 м (тест)</string>
-    <string name="test_hint_artist">ул. Шипка</string>
-    <string name="test_hint_album">♪ Изпълнител – Песен</string>
+    <string name="test_hint_title">⮙ 200 м (тест)</string>
+    <string name="test_hint_artist">♪ Песен • Албум</string>
+    <string name="test_hint_album">Изпълнител</string>
 
     <string name="section_access">Достъп до известията</string>
     <string name="access_granted">Разрешен – известията на навигацията могат да се четат.</string>
@@ -67,21 +67,8 @@
     <string name="no_hint_yet">Още няма указание.</string>
     <string name="test_hint">Изпрати тестово указание (10 с)</string>
 
-    <string name="art_icons">Собствени иконки на маневрите с компасна стрелка</string>
+    <string name="art_icons">Картинките на Google Maps на тъмен фон, собствена стрелка направо</string>
     <string name="new_track_per_song">Подавай всяка нова песен като нова песен към колата (само ако колата не обновява третия ред иначе)</string>
-    <string name="open_destination">Навигация с компасна стрелка</string>
-    <string name="dest_title">Навигация с компасна стрелка</string>
-    <string name="dest_hint">Въведете адрес (или споделете място от Google Maps към това приложение). Приложението намира координатите, пуска GPS за компасната стрелка и отваря навигацията в Google Maps.</string>
-    <string name="dest_input_hint">Адрес или координати (42.6977, 23.3219)</string>
-    <string name="dest_go">Тръгни</string>
-    <string name="dest_stop">Спри компаса</string>
-    <string name="dest_stopped">Компасът е спрян.</string>
-    <string name="dest_searching">Търся адреса…</string>
-    <string name="dest_active">Компасът е активен: %1$s</string>
-    <string name="dest_not_found">Адресът не е намерен – Google Maps навигира без компасна стрелка.</string>
-    <string name="dest_no_permission">Няма разрешение за местоположение – навигация без компасна стрелка.</string>
-    <string name="trip_channel">Компасна стрелка (GPS)</string>
-    <string name="trip_running">Компасната стрелка е активна</string>
 
     <string name="section_debug">Дневник (за отстраняване на грешки)</string>
     <string name="debug_log">Записвай известията на навигационните приложения</string>

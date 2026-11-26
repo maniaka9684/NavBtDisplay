@@ -24,7 +24,7 @@ sealed class Shape {
  * The maneuver icons, in the style approved for this build: dark square tile, maneuver
  * path thick and blue with a solid head, skipped alternatives grey, roundabouts
  * counter-clockwise (right-hand traffic) with the exit number in a blue centre circle,
- * optional yellow compass badge at the bottom right. Pure Kotlin, so the geometry
+ * Pure Kotlin, so the geometry
  * can be checked on the JVM (see IconSpecTest, which also writes SVG previews).
  */
 object IconSpec {
@@ -32,9 +32,8 @@ object IconSpec {
     const val BG = 0xFF1B212B.toInt()
     const val BLUE = 0xFF4DA3FF.toInt()
     const val GREY = 0xFF5C6470.toInt()
-    const val YELLOW = 0xFFF0B429.toInt()
-    const val BADGE = 0xFF242C38.toInt()
     const val DARK = 0xFF0F1216.toInt()
+    const val WHITE = 0xFFFFFFFF.toInt()
 
     private const val ROUTE_W = 11f
     private const val ROAD_W = 10f
@@ -80,9 +79,34 @@ object IconSpec {
     private fun sided(side: Side, leftShapes: List<Shape>) =
         if (side == Side.RIGHT) mirror(leftShapes) else leftShapes
 
+    /**
+     * Straight arrow in the Google Maps style: chevron head (two thick arms, cut out
+     * underneath), solid stem, two dashes as tail. White, matching the Google Maps
+     * pictures shown near a maneuver.
+     */
+    fun straightWhite(): List<Shape> {
+        fun rect(x0: Float, y0: Float, x1: Float, y1: Float) =
+            Shape.Polygon(listOf(x0 to y0, x1 to y0, x1 to y1, x0 to y1), WHITE)
+        return listOf(
+            // Chevron: arms 16 wide at 45°, centre line from (43,58) over (75,26) to (107,58).
+            Shape.Polygon(
+                listOf(
+                    75f to 14.7f, 112.7f to 52.3f, 101.3f to 63.7f,
+                    75f to 37.3f, 48.7f to 63.7f, 37.3f to 52.3f,
+                ),
+                WHITE,
+            ),
+            Shape.Circle(107f, 58f, 8f, fill = WHITE),
+            Shape.Circle(43f, 58f, 8f, fill = WHITE),
+            rect(67f, 30f, 83f, 92f),
+            rect(67f, 98f, 83f, 111f),
+            rect(67f, 117f, 83f, 130f),
+        )
+    }
+
     /** Shapes of [m], or null for UNKNOWN (the caller then uses the notification picture). */
-    fun build(m: Maneuver, compassDeg: Int? = null): List<Shape>? {
-        val body: List<Shape> = when (m.type) {
+    fun build(m: Maneuver): List<Shape>? {
+        return when (m.type) {
             ManeuverType.STRAIGHT -> straight()
             ManeuverType.TURN -> sided(m.side, turnLeft())
             ManeuverType.SLIGHT -> sided(m.side, slightLeft())
@@ -96,9 +120,8 @@ object IconSpec {
             ManeuverType.MERGE -> if (m.side == Side.RIGHT) mirror(mergeLeft()) else mergeLeft()
             ManeuverType.FERRY -> ferry()
             ManeuverType.DESTINATION -> destination(m.side)
-            ManeuverType.UNKNOWN -> return null
+            ManeuverType.UNKNOWN -> null
         }
-        return body + (compassDeg?.let(::compass) ?: emptyList())
     }
 
     private fun straight() = listOf(route(mv(75, 135), ln(75, 40)), head(75f, 36f, 0f))
@@ -231,16 +254,5 @@ object IconSpec {
         Side.NONE -> listOf(route(mv(75, 135), ln(75, 98))) + pin(75f, 56f, 22f)
         Side.LEFT -> listOf(route(mv(95, 135), ln(95, 44)), head(95f, 40f, 0f)) + pin(48f, 66f, 17f)
         Side.RIGHT -> listOf(route(mv(55, 135), ln(55, 44)), head(55f, 40f, 0f)) + pin(102f, 66f, 17f)
-    }
-
-    /** Yellow badge at the bottom right; [deg] = direction to the destination relative to driving (0 = ahead). */
-    fun compass(deg: Int): List<Shape> {
-        val cx = 128f
-        val cy = 128f
-        val pts = listOf(0f to -12f, -8f to 9f, 0f to 4f, 8f to 9f)
-        return listOf(
-            Shape.Circle(cx, cy, 17f, fill = BADGE, stroke = YELLOW, strokeWidth = 2.5f),
-            Shape.Polygon(pts.map { (x, y) -> rot(x, y, deg.toFloat(), cx, cy) }, YELLOW),
-        )
     }
 }

@@ -5,35 +5,72 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NavDisplayTest {
-    private fun g(dist: String, text: String, street: String? = null, summary: String? = "12 мин · 5,3 км") =
-        Guidance(
-            NavInfo(distance = dist, maneuver = text, street = street, summary = summary),
-            ManeuverParser.parse(text),
-            ManeuverParser.meters(dist),
-        )
+    private val song = Song("Песен", "Изпълнител", "Албум")
+
+    private fun g(dist: String, m: Maneuver, street: String? = "ул. Шипка") =
+        Guidance(NavInfo(distance = dist, street = street), m, ManeuverParser.meters(dist), "abc")
+
+    private val left = Maneuver(ManeuverType.TURN, Side.LEFT)
 
     @Test fun nearManeuver() {
-        val d = NavDisplay.compose(g("200 м", "Завийте наляво", "ул. Шипка"), 500, "♪ Artist – Song")
-        assertEquals("Наляво · 200 м", d.title)
-        assertEquals("ул. Шипка", d.artist)
-        assertEquals("♪ Artist – Song", d.album)
-        assertEquals(ManeuverType.TURN, d.icon.type)
+        val d = NavDisplay.compose(g("200 м", left), 500, song)
+        assertEquals("⮙ 200 м", d.title)
+        assertEquals("♪ Песен • Албум", d.artist)
+        assertEquals("Изпълнител", d.album)
+        assertEquals(left, d.icon)
     }
 
-    @Test fun farManeuverShowsStraight() {
-        val d = NavDisplay.compose(g("8,4 км", "Завийте наляво", "ул. Шипка"), 500, null)
-        assertEquals("Направо · 8,4 км", d.title)
-        assertEquals("след това: наляво", d.artist)
-        assertEquals("12 мин · 5,3 км", d.album)
+    @Test fun cruiseShowsOnlyArrow() {
+        val d = NavDisplay.compose(g("8,4 км", left), 500, song)
+        assertEquals("⮙", d.title)
         assertEquals(ManeuverType.STRAIGHT, d.icon.type)
     }
 
-    @Test fun keyStableWhileCountingDown() {
-        val a = NavDisplay.compose(g("400 м", "Завийте наляво", "ул. Шипка"), 500, null)
-        val b = NavDisplay.compose(g("300 м", "Завийте наляво", "ул. Шипка"), 500, null)
+    @Test fun songLineWithoutAlbum() {
+        assertEquals("♪ Песен", NavDisplay.songLine(Song("Песен", "Изпълнител")))
+        assertEquals("♪ Албум", NavDisplay.songLine(Song(null, "Изпълнител", "Албум")))
+        assertEquals("", NavDisplay.songLine(Song(" ", "Изпълнител", null)))
+    }
+
+    @Test fun noMusicNoLines() {
+        val d = NavDisplay.compose(g("200 м", left), 500, null)
+        assertEquals("", d.artist)
+        assertEquals("", d.album)
+    }
+
+    @Test fun destinationCountsDown() {
+        val d = NavDisplay.compose(g("150 м", Maneuver(ManeuverType.DESTINATION)), 500, song)
+        assertEquals("⮙ 150 м", d.title)
+        assertEquals(ManeuverType.DESTINATION, d.icon.type)
+    }
+
+    @Test fun zeroMetersAndStraightShowNoDistance() {
+        assertEquals("⮙", NavDisplay.compose(g("0 м", left), 500, null).title)
+        assertEquals("⮙", NavDisplay.compose(g("300 м", Maneuver(ManeuverType.STRAIGHT)), 500, null).title)
+    }
+
+    @Test fun keyStable() {
+        val a = NavDisplay.compose(g("400 м", left), 500, null)
+        val b = NavDisplay.compose(g("300 м", left), 500, song)
+        val far = NavDisplay.compose(g("900 м", left), 500, null)
         assertEquals(a.key, b.key)
-        val far = NavDisplay.compose(g("900 м", "Завийте наляво", "ул. Шипка"), 500, null)
-        assertTrue(far.key != a.key)
+        assertEquals(a.key, far.key)
+        val next = NavDisplay.compose(g("900 м", Maneuver(ManeuverType.TURN, Side.RIGHT)), 500, null)
+        assertTrue(next.key != a.key)
+    }
+
+    @Test fun roundaboutExitBeforeDistance() {
+        val m = ManeuverParser.parse("На кръговото кръстовище вземете втория изход към ул. Шипка")
+        assertEquals("⮙ 2. изх. 300 м", NavDisplay.compose(g("300 м", m), 500, null).title)
+        assertEquals("⮙", NavDisplay.compose(g("3 км", m), 500, null).title)
+        // A motorway exit number is not a roundabout exit.
+        assertEquals("⮙ 400 м", NavDisplay.compose(g("400 м", ManeuverParser.parse("Излезте на изход 12")), 500, null).title)
+    }
+
+    @Test fun keepNearDoesNotFlipBack() {
+        val d = NavDisplay.compose(g("1,2 км", left), 500, null, keepNear = true)
+        assertEquals("⮙ 1,2 км", d.title)
+        assertEquals(left, d.icon)
     }
 
     @Test fun thresholdHysteresis() {
@@ -48,16 +85,7 @@ class NavDisplayTest {
     @Test fun speedFromCountdown() {
         val s = SpeedEstimator()
         s.onDistance("k", 2000, 0)
-        s.onDistance("k", 1500, 15_000) // 500 m in 15 s = 120 km/h
+        s.onDistance("k", 1500, 15_000)
         assertEquals(120.0, s.kmh!!, 0.5)
-    }
-
-    @Test fun geo() {
-        // Sofia -> Plovdiv is roughly south-east.
-        val b = Geo.bearing(42.6977, 23.3219, 42.1354, 24.7453)
-        assertTrue(b in 110.0..130.0)
-        assertEquals(-90.0, Geo.relative(0.0, 90.0), 0.001)
-        assertEquals(180, Geo.bucket(-179.0))
-        assertEquals(30, Geo.bucket(40.0))
     }
 }

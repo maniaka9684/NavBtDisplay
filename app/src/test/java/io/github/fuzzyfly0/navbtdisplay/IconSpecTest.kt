@@ -36,11 +36,12 @@ class IconSpecTest {
     )
 
     @Test fun allBuild() {
-        for ((_, m) in all) assertNotNull(IconSpec.build(m, 30))
+        for ((_, m) in all) assertNotNull(IconSpec.build(m))
         assertNull(IconSpec.build(Maneuver(ManeuverType.UNKNOWN)))
         val dir = System.getProperty("icons.preview") ?: return
         File(dir).mkdirs()
-        for ((name, m) in all) File(dir, "$name.svg").writeText(svg(IconSpec.build(m, if (name == "rb_exit2") 35 else null)!!))
+        for ((name, m) in all) File(dir, "$name.svg").writeText(svg(IconSpec.build(m)!!))
+        File(dir, "straight_white.svg").writeText(svg(IconSpec.straightWhite()))
     }
 
     private fun hex(c: Int) = String.format("#%06x", c and 0xFFFFFF)

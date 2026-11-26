@@ -28,15 +28,33 @@ object ArtImages {
         return fromDrawable(small.mutate().apply { setTint(Color.WHITE) })
     }
 
+    /** The large icon of the notification drawn on transparency at [size]×[size], as ARGB pixels. */
+    fun largeIconPixels(context: Context, sbn: StatusBarNotification, size: Int): IntArray? {
+        val d = sbn.notification.getLargeIcon()?.let { runCatching { it.loadDrawable(context) }.getOrNull() } ?: return null
+        val b = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        d.setBounds(0, 0, size, size)
+        d.draw(Canvas(b))
+        val px = IntArray(size * size)
+        b.getPixels(px, 0, size, 0, 0, size, size)
+        b.recycle()
+        return px
+    }
+
     /** Centers [d] with some margin on a background that contrasts with it. */
-    fun fromDrawable(d: Drawable): Bitmap {
+    /** Like [fromNotification], but the picture is placed unchanged on the background [bg]. */
+    fun fromNotificationOn(context: Context, sbn: StatusBarNotification, bg: Int): Bitmap? {
+        val d = sbn.notification.getLargeIcon()?.let { runCatching { it.loadDrawable(context) }.getOrNull() } ?: return null
+        return fromDrawable(d, bg)
+    }
+
+    fun fromDrawable(d: Drawable, bg: Int? = null): Bitmap {
         val inner = (SIZE * 0.8f).toInt()
         val icon = Bitmap.createBitmap(inner, inner, Bitmap.Config.ARGB_8888)
         d.setBounds(0, 0, inner, inner)
         d.draw(Canvas(icon))
         val out = Bitmap.createBitmap(SIZE, SIZE, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(out)
-        canvas.drawColor(if (isLight(icon)) Color.BLACK else Color.WHITE)
+        canvas.drawColor(bg ?: if (isLight(icon)) Color.BLACK else Color.WHITE)
         val offset = (SIZE - inner) / 2f
         canvas.drawBitmap(icon, offset, offset, null)
         icon.recycle()

@@ -48,24 +48,38 @@ class NavListenerService : NotificationListenerService() {
             NavPublisher.onArt(this, ArtMode.NOTIFICATION, runCatching { ArtImages.fromNotification(this, sbn) }.getOrNull())
         }
         LiveHint.onGuidance(sbn.key, app.label, car)
-        TripState.onGuidance()
         val info = NavText.parse(raw, app.label)
         if (info == null) {
             NavPublisher.onGuidance(this, sbn.key, car)
             return
         }
-        // Classify the maneuver (incl. street: "Излезте на изход 5" keeps "изход" there).
+        // Google Maps in Bulgarian has no maneuver words, only the picture: recognise the picture
+        // first, then the text (which may still add a roundabout exit number).
+        val fp = runCatching {
+            ArtImages.largeIconPixels(this, sbn, FP_SAMPLE)?.let { IconFingerprint.fromArgb(it, FP_SAMPLE, FP_SAMPLE) }
+        }.getOrNull()
+        val byIcon = fp?.let { KnownIcons.match(it) }
         val iconKey = NotificationDump.iconNames(this, sbn).firstNotNullOfOrNull(NavText::directionKey)
-        val maneuver = ManeuverParser.parse(listOfNotNull(info.maneuver, info.street).joinToString(" "), iconKey)
-        val g = Guidance(info, maneuver, ManeuverParser.meters(info.distance))
-        DebugLog.log(this, "classified $maneuver meters=${g.meters}")
-        val fallback = if (maneuver.type == ManeuverType.UNKNOWN && Prefs(this).artMode == ArtMode.ICONS) {
-            runCatching { ArtImages.fromNotification(this, sbn) }.getOrNull()
+        val byText = ManeuverParser.parse(listOfNotNull(info.maneuver, info.street).joinToString(" "), iconKey)
+        val maneuver = byIcon?.copy(exit = byText.exit) ?: byText
+        val iconId = fp?.let(IconFingerprint::shortId)
+        if (fp != null && byIcon == null && loggedIcons.none { IconFingerprint.distance(it, fp) <= IconFingerprint.MAX_DISTANCE }) {
+            loggedIcons += fp
+            DebugLog.log(this, "NEW ICON id=$iconId fp=$fp\n" + IconFingerprint.ascii(fp))
+        }
+        val g = Guidance(info, maneuver, ManeuverParser.meters(info.distance), iconId)
+        DebugLog.log(this, "classified $maneuver icon=$iconId meters=${g.meters}")
+        // Google Maps' own picture, unchanged, on our dark background (#1b212b).
+        val fallback = if (Prefs(this).artMode == ArtMode.ICONS) {
+            runCatching { ArtImages.fromNotificationOn(this, sbn, IconSpec.BG) }.getOrNull()
         } else {
             null
         }
         NavPublisher.onClassifiedGuidance(this, sbn.key, g, fallback)
     }
+
+    /** Pictures already written to the log as "NEW ICON" in this run. */
+    private val loggedIcons = mutableListOf<String>()
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
         val app = NavApps.forPackage(sbn.packageName) ?: return
@@ -74,7 +88,11 @@ class NavListenerService : NotificationListenerService() {
         if (app.kind == NavApp.Kind.NAVIGATION) {
             LiveHint.onGuidanceEnded(sbn.key)
             NavPublisher.onGuidanceEnded(this, sbn.key)
-            TripState.onGuidanceEnded(this)
         }
+    }
+
+    private companion object {
+        /** Size the notification picture is drawn at before fingerprinting. */
+        const val FP_SAMPLE = 96
     }
 }

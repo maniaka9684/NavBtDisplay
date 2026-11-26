@@ -11,8 +11,20 @@ android {
         applicationId = "io.github.fuzzyfly0.navbtdisplay.bg"
         minSdk = 29
         targetSdk = 37
-        versionCode = 2
-        versionName = "0.2.0-bg.1"
+        versionCode = 9
+        versionName = "0.2.0-bg.8"
+    }
+
+    // Fixed debug key in the repository: every GitHub build gets the same signature, so a new
+    // version installs over the old one and keeps its settings and permissions.
+    // (A debug key: fine for a personal app, not for publishing.)
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
     }
 
     buildTypes {
